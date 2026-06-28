@@ -15,7 +15,10 @@ from typing import List
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-from nnsight import NNsight
+try:
+    from nnsight import NNsight
+except ImportError:  # only needed by the intervention helper below; not used in training/readout
+    NNsight = None
 
 class LayerNorm(nn.Module):
     """ LayerNorm but with an optional bias. PyTorch doesn't support simply bias=False """
