@@ -6,57 +6,17 @@ from .models.model import GPT, GPTConfig, GPTConfigNoFlashAttention
 from .constants import TASK_MAP
 
 def load_metadata(dirname: str):
-    """
-    Load metadata from a JSON file in the specified directory.
-    
-    Args:
-        dirname: Path to the directory containing the metadata.json file.
-        
-    Returns:
-        dict: Parsed metadata dictionary containing model and training information.
-    """
+    """Load metadata.json from a run directory and return it as a dict."""
     with open(os.path.join(dirname, 'metadata.json'), 'r', encoding='utf-8') as f:
         return json.load(f)
 
 def load_gpt(dirname: str, iternum: int = None, device: str = 'cuda', disable_flash_attention=False):
-    """
-    Load a GPT model from a checkpoint directory.
-    
-    This function loads a trained GPT model from saved checkpoints, automatically
-    selecting the latest checkpoint or a specific iteration. It handles model
-    configuration and weight loading.
-    
-    Args:
-        dirname: Path to the directory containing model checkpoints and metadata.
-        iternum: Optional iteration number to load. If None, loads the latest checkpoint.
-                If specified, loads the most recent checkpoint up to and including this iteration.
-        device: Device to load the model onto (default: 'cuda'). Can be 'cuda', 'cpu', etc.
-        disable_flash_attention: If True, uses GPTConfigNoFlashAttention instead of 
-                                GPTConfig (default: False).
-    
-    Returns:
-        GPT: Loaded GPT model with weights from the selected checkpoint.
-        
-    Notes:
-        - Checkpoints should be stored in a 'models' subdirectory within dirname
-        - Checkpoint files should match the pattern '*{number}.pt' or '*best.pt'
-        - The function prints the iteration number of the loaded checkpoint
+    """Load a GPT from a checkpoint dir: the latest checkpoint, or the newest one <= iternum.
+
+    Reads model_params from metadata.json; pass disable_flash_attention=True on CPU.
     """
     def latest_checkpoint(dirname: str, iternum: int = None):
-        """
-        Find the latest checkpoint file in the models directory.
-        
-        Args:
-            dirname: Base directory containing the 'models' subdirectory.
-            iternum: Optional maximum iteration number to consider.
-            
-        Returns:
-            str: Full path to the selected checkpoint file.
-            
-        Notes:
-            - 'best.pt' checkpoints are treated as having infinite iteration number
-            - Checkpoints are sorted numerically by iteration number
-        """
+        """Path of the newest checkpoint in <dirname>/models ('best.pt' ranks highest), capped at iternum."""
         modeldir = os.path.join(dirname, 'models')
         all_snapshots = sorted([
             (int(m.group(1)) if m.group(1) != 'best' else float('inf'), f)
@@ -79,27 +39,7 @@ def load_gpt(dirname: str, iternum: int = None, device: str = 'cuda', disable_fl
     return model
     
 def load_task(dirname: str):
-    """
-    Load and instantiate a task object from training metadata.
-    
-    This function reads the task configuration from metadata and creates an instance
-    of the corresponding task class. It also prints information about the task
-    configuration.
-    
-    Args:
-        dirname: Path to the directory containing metadata.json with task configuration.
-        
-    Returns:
-        tuple: A tuple containing:
-            - task: An instantiated task object from the appropriate task class
-            - description (str): A formatted string describing the task 
-              (e.g., "task_name to max_order")
-    
-    Notes:
-        - Task classes are looked up in TASK_MAP using the task_name from metadata
-        - Prints training information including task name, max_order, and either
-          num_symbols or vocab_size depending on which is present in the config
-    """
+    """Instantiate the task described by a run's metadata; returns (task, "<task_name> to <max_order>")."""
     args = load_metadata(dirname)['args']
     task_config = args['task_config']
     if 'num_symbols' in task_config:
