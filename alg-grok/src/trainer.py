@@ -1,5 +1,6 @@
 import os
 import json
+import time
 
 import torch
 import torch.nn.functional as F
@@ -65,25 +66,29 @@ class Trainer:
             padded_inputs = train_batch["inputs"]
             padded_targets = train_batch["targets"]
 
-        # Forward pass
-        outputs = model(padded_inputs)
-        if not isinstance(outputs, torch.Tensor):
-            outputs = outputs[0]
+        # Forward pass. bf16 autocast on CUDA when config.bf16 (matches He et al.'s
+        # --dtype bfloat16); a no-op on CPU/Turing or when bf16 is off. Weights/optimizer
+        # stay fp32, and bf16 has fp32's range, so no GradScaler is needed.
+        with torch.autocast(device_type=self.device.type, dtype=torch.bfloat16,
+                            enabled=getattr(config, "bf16", False) and self.device.type == "cuda"):
+            outputs = model(padded_inputs)
+            if not isinstance(outputs, torch.Tensor):
+                outputs = outputs[0]
 
-        if config.final_token_only:
-            # Only compute loss on final token
-            masked_outputs = outputs[:, -1, :].reshape(-1, outputs.size(-1))
-            masked_targets = padded_targets[:, -1].reshape(-1)
-        else:
-            # Create mask for non-padding tokens
-            mask = (padded_targets != task.pad_token_id)
+            if config.final_token_only:
+                # Only compute loss on final token
+                masked_outputs = outputs[:, -1, :].reshape(-1, outputs.size(-1))
+                masked_targets = padded_targets[:, -1].reshape(-1)
+            else:
+                # Create mask for non-padding tokens
+                mask = (padded_targets != task.pad_token_id)
 
-            # Reshape outputs and targets, applying mask
-            masked_outputs = outputs.reshape(-1, outputs.size(-1))[mask.reshape(-1)]
-            masked_targets = padded_targets.reshape(-1)[mask.reshape(-1)]
+                # Reshape outputs and targets, applying mask
+                masked_outputs = outputs.reshape(-1, outputs.size(-1))[mask.reshape(-1)]
+                masked_targets = padded_targets.reshape(-1)[mask.reshape(-1)]
 
-        # Compute loss only on non-padded positions
-        loss = loss_fn(masked_outputs, masked_targets)
+            # Compute loss only on non-padded positions
+            loss = loss_fn(masked_outputs, masked_targets)
 
         # Backward pass
         optimizer.zero_grad()
@@ -152,6 +157,9 @@ class Trainer:
         history = []  # per-eval metrics (reliance/acc/loss vs step), persisted to metrics.json
         eval_accuracy = 0.0
         best_eval_accuracy = 0.0
+        step_wall = 0.0           # summed wall-time of train steps since last record
+        steps_since_record = 0    # -> accurate s/it (tqdm's own rate is skewed by eval steps)
+        s_per_it = float('nan')
         pbar = tqdm(range(config.n_steps), desc="Training", unit="it")
         for step in pbar:
             log = {}
@@ -161,20 +169,27 @@ class Trainer:
                                           batch_size=config.batch_size,
                                           k_shots=config.k_shots, fixed_p=config.fixed_p)
                 eval_accuracy = stats["acc_full"]
+                # Accurate seconds/iteration over the train steps since the last record
+                # (decoupled from tqdm's smoothed rate, which the eval step skews).
+                s_per_it = step_wall / steps_since_record if steps_since_record else float('nan')
+                step_wall, steps_since_record = 0.0, 0
                 summary = (f"reliance={stats['symbolic_reliance']:.3f} "
                            f"ctx_shuf={stats['acc_context_shuffle']:.3f} "
-                           f"glob={stats['acc_global_relabel']:.3f}")
-                
+                           f"glob={stats['acc_global_relabel']:.3f} "
+                           f"{s_per_it:.4f}s/it")
+
                 # Task-specific logging
                 pbar.write(f'Step: {step}, Acc: {round(eval_accuracy * 100, 4)}; {summary}')
                 log |= {
-                    "eval_accuracy": eval_accuracy 
+                    "eval_accuracy": eval_accuracy,
+                    "s_per_it": s_per_it,
                 }
                 log |= stats
 
                 # Persist the metrics history so reliance/acc/loss vs step can be plotted
                 # later without wandb (e.g. on Colab).
-                history.append({"step": step, "train_loss": (losses[-1] if losses else None), **stats})
+                history.append({"step": step, "train_loss": (losses[-1] if losses else None),
+                                "s_per_it": s_per_it, **stats})
                 with open(f'{output_dir}/metrics.json', 'w', encoding='utf-8') as f:
                     json.dump(history, f, indent=2)
 
@@ -197,8 +212,12 @@ class Trainer:
             if config.checkpoint_steps and (step % config.checkpoint_steps == 0):
                 torch.save(model.state_dict(), f'{output_dir}/models/algebra_gpt_{step}.pt')
 
+            t0 = time.perf_counter()
             train_loss = self.train_step(model, task, config, optimizer, scheduler)
-            pbar.set_postfix({'Step': step, 'Train Loss': round(train_loss, 4)})
+            step_wall += time.perf_counter() - t0
+            steps_since_record += 1
+            pbar.set_postfix({'Step': step, 'Train Loss': round(train_loss, 4),
+                              's/it': f'{s_per_it:.4f}'})
             losses.append(train_loss)
             log |= {
                 "train_loss": train_loss,

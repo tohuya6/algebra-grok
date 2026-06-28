@@ -24,6 +24,7 @@ class TrainingParams:
     n_steps: int = 200001
     lr: float = 1e-5
     weight_decay: float = 0.0  # AdamW weight decay; set >0 to probe grokking dynamics
+    bf16: bool = False  # bf16 autocast on CUDA (~2x on A100; no-op on CPU/Turing)
     lr_warmup_steps: int = 1000
     evaluation_steps: int = 100
     checkpoint_steps: int = 5000

@@ -41,11 +41,11 @@ def main(a):
         output_dir=os.path.join(ROOT, "outputs", a.name), leftpad=False, batch_size=a.batch_size,
         n_steps=a.n_steps, lr=a.lr, weight_decay=a.weight_decay, lr_warmup_steps=a.lr_warmup_steps,
         evaluation_steps=a.evaluation_steps, checkpoint_steps=0, final_token_only=False,
-        seed=a.seed, evaluation_size=a.evaluation_size, use_wandb=False,
+        seed=a.seed, evaluation_size=a.evaluation_size, use_wandb=False, bf16=a.bf16,
     )
     metadata = {"args": {"task_name": a.task_name, "task_config": task_config,
                          "k_shots": a.k_shots, "fixed_p": a.fixed_p,
-                         "weight_decay": a.weight_decay, "lr": a.lr},
+                         "weight_decay": a.weight_decay, "lr": a.lr, "bf16": a.bf16},
                 "model_params": model_params}
 
     print(f"training {a.name!r}: {a.n_steps} steps, fixed_p={a.fixed_p} "
@@ -76,6 +76,8 @@ if __name__ == "__main__":
     p.add_argument("--lr", type=float, default=1e-3)
     p.add_argument("--weight_decay", type=float, default=2.0,
                    help="AdamW weight decay (He et al. grokking value; pair with lr~1.5e-4)")
+    p.add_argument("--bf16", action="store_true",
+                   help="bf16 autocast on CUDA (~2x on A100; no-op on T4/CPU)")
     p.add_argument("--lr_warmup_steps", type=int, default=100)
     p.add_argument("--evaluation_steps", type=int, default=250)
     p.add_argument("--evaluation_size", type=int, default=64)
