@@ -155,8 +155,8 @@ class Trainer:
         pbar = tqdm(range(config.n_steps), desc="Training", unit="it")
         for step in pbar:
             log = {}
-            # Periodic evaluation (more frequent early in training)
-            if (step <= 10000 and step % config.evaluation_steps == 0) or (step > 10000 and step % 1000 == 0):
+            # Periodic evaluation + metrics record, every evaluation_steps (He-style cadence)
+            if step == 0 or step % config.evaluation_steps == 0:
                 stats = symbolic_reliance(model, task, self.device,
                                           batch_size=config.batch_size,
                                           k_shots=config.k_shots, fixed_p=config.fixed_p)
