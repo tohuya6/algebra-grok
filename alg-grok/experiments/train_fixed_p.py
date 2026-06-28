@@ -44,10 +44,12 @@ def main(a):
         seed=a.seed, evaluation_size=a.evaluation_size, use_wandb=False,
     )
     metadata = {"args": {"task_name": a.task_name, "task_config": task_config,
-                         "k_shots": a.k_shots, "fixed_p": a.fixed_p},
+                         "k_shots": a.k_shots, "fixed_p": a.fixed_p,
+                         "weight_decay": a.weight_decay, "lr": a.lr},
                 "model_params": model_params}
 
-    print(f"training {a.name!r}: {a.n_steps} steps, fixed_p={a.fixed_p} -> {cfg.output_dir}")
+    print(f"training {a.name!r}: {a.n_steps} steps, fixed_p={a.fixed_p} "
+          f"wd={a.weight_decay} lr={a.lr} -> {cfg.output_dir}")
     Trainer(cfg, ctx).fit(model, task, metadata, cfg)
     print("done")
 
