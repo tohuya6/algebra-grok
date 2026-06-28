@@ -23,6 +23,7 @@ class TrainingParams:
     batch_size: int = 128
     n_steps: int = 200001
     lr: float = 1e-5
+    weight_decay: float = 0.0  # AdamW weight decay; set >0 to probe grokking dynamics
     lr_warmup_steps: int = 1000
     evaluation_steps: int = 100
     checkpoint_steps: int = 5000
