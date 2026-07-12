@@ -1,9 +1,5 @@
 import argparse
 import os
-import sys
-
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # alg-grok/
-sys.path.insert(0, ROOT)  # make `src` importable regardless of cwd
 
 import torch
 
@@ -12,6 +8,8 @@ from src.models.model import GPT, GPTConfig, GPTConfigNoFlashAttention
 from src.trainer import Trainer
 from src.config import TrainingParams
 from src.constants import TASK_MAP
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # alg-grok/, for outputs/
 
 
 def build_model(d_model, n_layers, n_heads, block_size, vocab_size, use_flash):

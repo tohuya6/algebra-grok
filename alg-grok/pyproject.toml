@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "alg-grok"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "sympy",
+    "torch",
+    "tqdm",
+    "matplotlib",
+]
+
+# Optional extras — each is imported lazily/guarded, so the base install runs
+# training + readout without them:
+#   wandb      — experiment logging (trainer.py, only when use_wandb=True)
+#   pretrained — load HF GPT-2 checkpoints (model.py GPT.from_pretrained)
+#   interp     — attention-intervention helper (model.py, via nnsight)
+[project.optional-dependencies]
+wandb = ["wandb"]
+pretrained = ["transformers"]
+interp = ["nnsight"]
+
+[tool.setuptools.packages.find]
+include = ["src*"]

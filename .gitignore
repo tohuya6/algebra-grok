@@ -7,5 +7,10 @@ __pycache__/
 .venv/
 venv/
 
+# Python packaging / editable-install metadata (e.g. alg-grok/alg_grok.egg-info).
+*.egg-info/
+build/
+dist/
+
 # Downloaded model weights (large). Also covered by algebra/.gitignore's /outputs.
 algebra/outputs/
