@@ -39,6 +39,12 @@ class MixGroupAddition:
         self.vocab_size = len(self.vocab)
         self.numfor = { v: i for i, v in enumerate(self.vocab) }
 
+        # Frozen random permutation of element-slots used by fixed_p to decide
+        # *which* slots are pinned (see _fixed_slots). Seeded from self.seed so
+        # it's reproducible; uses its own RNG so the self.prng draw stream (and
+        # thus fixed_p=0 behaviour) stays byte-for-byte unchanged.
+        self.fixed_perm = random.Random(seed).sample(range(num_symbols), num_symbols)
+
     def _task_name(self):
         return 'mixgroup'
     
@@ -47,6 +53,18 @@ class MixGroupAddition:
                 f"max_order={self.max_order}, mix={self.mix}, "
                 f"holdout_zero={self.holdout_zero}, seed={self.seed})")
 
+    def _fixed_slots(self, total_order: int, fixed_p: float) -> set:
+        '''
+        The element-slots (0..total_order-1) pinned to their canonical token by
+        fixed_p. Selection order is a frozen random permutation (self.fixed_perm)
+        rather than the low-index prefix, so the pinned elements aren't biased
+        toward the identity/low-order slots. The set is stable across runs (hence
+        memorizable) and nested as fixed_p grows: fixed_p=0 -> empty set,
+        fixed_p=1 -> every slot.
+        '''
+        n_fixed = round(fixed_p * total_order)
+        slots_by_pi = [s for s in self.fixed_perm if s < total_order]
+        return set(slots_by_pi[:n_fixed])
 
     def sample_batch(self, batch_size: int,
             k_shots: int = 200, hold_out: int | list = 0,
@@ -71,15 +89,18 @@ class MixGroupAddition:
         If fixed_groups is provided, the groups are from the list given;
         otherwise the groups in each run are chosen randomly.
 
-        If unshuffled is True, the vocabulary used is abcd... with a given to
-        the first element of the first group; or unshuffled can be passed
-        as a string to explicitly assign the vocabulary; otherwise if it
-        is false, the vocabulary is assigned randomly in each run.
+        If unshuffled is True, the canonical vocabulary self.vocab[:order]
+        (0,1,2,... in order) is used, with its first token given to the first
+        element of the first group; or unshuffled can be passed as a string to
+        explicitly assign the vocabulary; otherwise if it is false, the
+        vocabulary is assigned randomly in each run.
 
         In the random (unshuffled=False) regime, fixed_p partially pins the
-        vocabulary: the first round(fixed_p * order) element-slots of each run
-        take their canonical token (consistent across runs, hence memorizable),
-        while the rest stay randomly assigned per run. fixed_p=0 is the usual
+        vocabulary: round(fixed_p * order) element-slots take their canonical
+        token (consistent across runs, hence memorizable), while the rest stay
+        randomly assigned per run. Which slots are pinned is chosen by a frozen
+        random permutation (see _fixed_slots), so the pinned elements aren't
+        biased toward the low-index/identity slots. fixed_p=0 is the usual
         all-variable behavior; fixed_p=1 matches unshuffled=True.
 
         The return structure provides lists of groups, their orders (sizes),
@@ -101,9 +122,10 @@ class MixGroupAddition:
             "groups": g,
             "orders": o,
             "vocabulary": [''.join(voc) for voc in v],
-            # Tokens pinned to their canonical value by fixed_p (the first
-            # round(fixed_p * order) slots of each run); '' when fixed_p == 0.
-            "fixed_vocabulary": [''.join(voc[:round(fixed_p * len(voc))]) for voc in v],
+            # Tokens pinned to their canonical value by fixed_p (the slots chosen
+            # by self._fixed_slots, in a frozen random order); '' when fixed_p == 0.
+            "fixed_vocabulary": [''.join(voc[s] for s in sorted(self._fixed_slots(len(voc), fixed_p)))
+                                 for voc in v],
             "prediction_mask": (tensor[:,:-1] == self.predict_token_id)
         }
 
@@ -168,21 +190,28 @@ class MixGroupAddition:
                 vocab = self.vocab[:total_order]
             wordfor = { g: vocab[i] for i, g in enumerate(all_elems) }
         else:
-            # Partial unshuffle: the first n_fixed slots take their canonical token
-            # self.vocab[i] (same across runs -> memorizable/parametric); the rest draw a
-            # fresh random token from the remaining symbols (-> symbolic). n_fixed=0 is the
-            # all-variable case (byte-for-byte unchanged); n_fixed=total_order matches unshuffled.
-            n_fixed = round(fixed_p * total_order)
+            # Partial unshuffle: the slots chosen by fixed_p (self._fixed_slots,
+            # picked in a frozen random order) take their canonical token
+            # self.vocab[i] -- same across runs, hence memorizable/parametric;
+            # the rest draw a fresh random token from the remaining symbols
+            # (-> symbolic). fixed_p=0 is the all-variable case (byte-for-byte
+            # unchanged); fixed_p=1 pins every slot (matches unshuffled=True).
+            fixed_slots = self._fixed_slots(total_order, fixed_p)
+            n_fixed = len(fixed_slots)
+            pool = [self.vocab[j] for j in range(self.num_symbols) if j not in fixed_slots]
             while True:
-                rand_words = (self.prng.sample(self.vocab[n_fixed:self.num_symbols], total_order - n_fixed)
+                rand_words = (self.prng.sample(pool, total_order - n_fixed)
                               if n_fixed < total_order else [])
-                vocab = self.vocab[:n_fixed] + rand_words
+                it = iter(rand_words)
+                vocab = [self.vocab[i] if i in fixed_slots else next(it)
+                         for i in range(total_order)]
                 wordfor = { g: vocab[i] for i, g in enumerate(all_elems) }
-                # holdout_zero forbids a *variable* identity (slot >= n_fixed) from being '0';
-                # fixed slots keep their canonical token regardless, as unshuffled=True does.
+                # holdout_zero forbids a *variable* identity (a slot not in
+                # fixed_slots) from being '0'; fixed slots keep their canonical
+                # token regardless, as unshuffled=True does.
                 offset, collide = 0, False
                 for E in elems:
-                    if offset >= n_fixed and wordfor[E[0]] == '0':
+                    if offset not in fixed_slots and wordfor[E[0]] == '0':
                         collide = True
                         break
                     offset += len(E)
