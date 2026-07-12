@@ -1,5 +1,3 @@
-# Repo-root ignores. Per-subproject rules live in icl/.gitignore and algebra/.gitignore.
-# NOTE: intentionally no bare `env/` here — that would wrongly ignore algebra/env/.
 .DS_Store
 __pycache__/
 *.py[cod]
@@ -12,5 +10,6 @@ venv/
 build/
 dist/
 
-# Downloaded model weights (large). Also covered by algebra/.gitignore's /outputs.
-algebra/outputs/
+# Model weights / training outputs (large) and W&B logs.
+/outputs
+/wandb
