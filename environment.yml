@@ -1,0 +1,25 @@
+# Cluster / CUDA conda env for algebra-grok (Northeastern Explorer, or any Linux + NVIDIA box).
+# Create from the REPO ROOT so the `-e .` editable install resolves this package:
+#   module load anaconda3            # on NURC Explorer
+#   conda env create -f environment.yml
+#   source activate alg-grok         # NURC recommends `source activate` over `conda activate`
+# For local macOS / CPU dev use environment-cpu.yml instead.
+name: alg-grok
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pytorch
+  - pytorch-cuda=12.4        # must be <= the node's CUDA driver (check `nvidia-smi`); lower if needed
+  - numpy
+  - sympy
+  - tqdm
+  - matplotlib
+  - ipykernel               # to run experiments/*.ipynb
+  - wandb                   # optional training logs (trainer, when use_wandb=True)
+  - pip
+  - pip:
+      - nnsight             # Bau-lab interpretability tool (pip-only, no conda package)
+      - -e .                # editable install of this package (reads pyproject.toml)

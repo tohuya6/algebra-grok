@@ -1,4 +1,54 @@
-temp notes:
+# algebra-grok
+
+Parametric-vs-symbolic solving in small transformers on in-context group/monoid arithmetic.
+`fixed_p` interpolates the training data between an **all-variable** vocabulary (symbolic:
+token meaning must be inferred in-context) and a **fully-pinned** one (parametric:
+token meaning is memorizable). The `symbolic_reliance` readout reports which regime a
+trained model is in. See the concept notes at the bottom for the full picture.
+
+## Setup (conda)
+
+Create the environment **from the repo root** (so the editable `pip install -e .` resolves):
+
+**Cluster — Northeastern Explorer / any Linux + NVIDIA box:**
+```bash
+module load anaconda3            # on NURC Explorer
+conda env create -f environment.yml
+source activate alg-grok         # NURC recommends `source activate` over `conda activate`
+```
+Per NURC guidance, create envs under `/projects/<lab>/...` (not `/home`) for storage quota.
+If `pytorch-cuda=12.4` exceeds the node's driver (`nvidia-smi`), lower it in `environment.yml`.
+
+**Local — macOS / CPU:**
+```bash
+conda env create -f environment-cpu.yml
+conda activate alg-grok
+```
+The only difference is the cluster env pins `pytorch-cuda` (Linux-only); local uses a CPU build.
+
+## Common runs (`just`)
+
+With the env active (`just` also prints this list):
+```bash
+just                       # list all recipes
+just train-symbolic        # fixed_p=0  (symbolic regime)
+just train-parametric      # fixed_p=1  (parametric regime)
+just train 0.5 mid 8000    # arbitrary fixed_p sweep point (p, name, steps)
+just grok                  # weight_decay=2.0, lr=1.5e-4, long + bf16
+just eval outputs/<run>    # symbolic-reliance readout on a checkpoint
+```
+Args are **positional**; override a global **before** the recipe (`just device=cuda train-symbolic`);
+extra flags pass straight through (`just train-symbolic big 20000 --d_model 256 --bf16`).
+
+## Layout
+- `src/` — model, tasks (data generation), trainer, readout, device utils
+- `experiments/` — `train_fixed_p.py` (training CLI), `eval.py` (readout CLI), notebooks
+- `outputs/` — training runs + checkpoints (gitignored)
+- `environment.yml` / `environment-cpu.yml` — conda envs (cluster / local)
+
+---
+
+## Concept notes
 
 The task (Eric's setup): one group, in-context learning. Each run shows solved facts (a b = c) using a symbol→element vocab, holds some facts out, and tests the model on a held-out fact. Symbols carry no built-in meaning (even digits are just letters) — meaning comes from the group structure.
 
