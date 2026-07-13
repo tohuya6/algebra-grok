@@ -11,7 +11,7 @@
 
 # --- overridable globals -------------------------------------------------------
 device := "auto"        # auto | cpu | cuda | cuda:N
-task   := "mixrosette"  # mixrosette | mixcyclic | mixdihedral | mixmonoid
+task   := "mixcyclic"   # mixrosette | mixcyclic | mixdihedral | mixmonoid
 steps  := "3000"        # training steps for the quick presets
 
 # show all recipes (default when you just type `just`)
@@ -57,6 +57,16 @@ grok name="grok" steps="50000" fixed_p="0.0" *extra="":
         --name {{name}} --fixed_p {{fixed_p}} \
         --task_name {{task}} --device {{device}} --n_steps {{steps}} \
         --weight_decay 2.0 --lr 1.5e-4 --bf16 {{extra}}
+
+# FULL constant-C10 sweep: trains p in {0.0..0.9} (p=1 excluded, degenerate). Long -> GPU/cluster.
+# NOT run by default; invoke explicitly, e.g. `just device=cuda sweep-c10` (steps default 200k).
+sweep-c10 steps="200000" *extra="":
+    for p in 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9; do \
+        python experiments/train_fixed_p.py \
+            --name c10-p$p --fixed_p $p \
+            --task_name mixcyclic --num_symbols 16 --max_order 10 --min_order 10 --mix 0 \
+            --device {{device}} --n_steps {{steps}} {{extra}}; \
+    done
 
 # --- evaluation ----------------------------------------------------------------
 # run the symbolic-reliance readout on a trained checkpoint dir

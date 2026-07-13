@@ -57,13 +57,13 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     p.add_argument("--device", default="auto", help="auto | cpu | cuda | cuda:N")
-    p.add_argument("--name", default="poc-parametric-tiny", help="output subfolder under outputs/")
-    p.add_argument("--fixed_p", type=float, default=1.0)
-    p.add_argument("--task_name", default="mixrosette",
+    p.add_argument("--name", default="c10-run", help="output subfolder under outputs/")
+    p.add_argument("--fixed_p", type=float, default=0.0)
+    p.add_argument("--task_name", default="mixcyclic",
                    choices=["mixrosette", "mixcyclic", "mixdihedral", "mixmonoid"])
-    p.add_argument("--num_symbols", type=int, default=8)
-    p.add_argument("--max_order", type=int, default=4)
-    p.add_argument("--min_order", type=int, default=None,
+    p.add_argument("--num_symbols", type=int, default=16)
+    p.add_argument("--max_order", type=int, default=10)
+    p.add_argument("--min_order", type=int, default=10,
                    help="lower bound on sampled group order; set == max_order (with --mix 0) "
                         "for one constant group every run (clean fixed_p sweep)")
     p.add_argument("--mix", type=float, default=0.0, help="prob. of adding another group per sequence")
