@@ -110,6 +110,17 @@ class MixGroupAddition:
         Calls sample_run to do the work of sampling individual sequences.
         '''
 
+        # Enforce max_length. Every shot emits exactly 5 tokens (',a b = c'), so the run
+        # is 5*k_shots tokens and the model sees 5*k_shots-1 input tokens (inputs = [:, :-1]).
+        # Fail loudly here rather than let the sequence overflow the model's block_size
+        # downstream (which surfaces as a cryptic positional-embedding index error).
+        n_input_tokens = 5 * k_shots - 1
+        if n_input_tokens > max_length:
+            raise ValueError(
+                f"k_shots={k_shots} produces {n_input_tokens} input tokens, over "
+                f"max_length={max_length}. Use k_shots <= {(max_length + 1) // 5} "
+                f"or a larger block_size.")
+
         expressions, g, o, v = zip(*[
             self.sample_run(k_shots, hold_out, commute_out, fixed_groups, fixed_p)
                 for _ in range(batch_size)])
@@ -628,6 +639,48 @@ def _unit_test():
         00010000100001000010000100001000010000100001000010000100001
         00010000100001000010000100001000010000100001000010000100001
         00010000100001000010000100001000010000100001000010000100001''')
+
+    # --- structural invariants (model-free): fixed_p, min_order, constant-group,
+    # --- and max_length enforcement. These don't depend on golden RNG strings, so they
+    # --- use their own task instances and can grow without re-deriving expected output.
+
+    # Constant-group setup: min_order == max_order and mix=0 -> exactly one order-10
+    # cyclic group every run, so total_order is a constant 10 (each 0.1 step of fixed_p
+    # then pins exactly one more element).
+    c10 = MixCyclicGroupAddition(num_symbols=16, max_order=10, min_order=10, mix=0.0, seed=1)
+    for _ in range(20):
+        _, groups, orders, _ = c10.sample_run(k_shots=8)
+        assert len(groups) == 1 and orders == [10], f"expected one C10, got {orders}"
+
+    # _fixed_slots: exact count round(fixed_p*order), deterministic, nested as fixed_p grows.
+    prev = set()
+    for p in [0.0, 0.1, 0.3, 0.5, 0.7, 1.0]:
+        s = c10._fixed_slots(10, p)
+        assert len(s) == round(p * 10), f"fixed_p={p}: |slots|={len(s)} != {round(p * 10)}"
+        assert s == c10._fixed_slots(10, p), "fixed_slots not deterministic"
+        assert prev <= s, f"fixed_p={p}: slots not nested over the smaller fixed_p"
+        prev = s
+    assert c10._fixed_slots(10, 0.0) == set(), "fixed_p=0 must pin nothing"
+    assert c10._fixed_slots(10, 1.0) == set(range(10)), "fixed_p=1 must pin every slot"
+
+    # fixed_vocabulary length in a batch == number of pinned slots.
+    b = c10.sample_batch(batch_size=4, k_shots=8, fixed_p=0.3)
+    assert all(len(fv) == round(0.3 * 10) for fv in b["fixed_vocabulary"]), b["fixed_vocabulary"]
+
+    # min_order lower-bounds every sampled group's order.
+    lo = MixCyclicGroupAddition(num_symbols=16, max_order=12, min_order=7, mix=0.5, seed=2)
+    for _ in range(20):
+        for G in lo.sample_groups():
+            assert G.order() >= 7, f"min_order=7 violated: sampled order {G.order()}"
+
+    # max_length is enforced: 5*k_shots-1 input tokens must fit, else a clear ValueError.
+    try:
+        c10.sample_batch(batch_size=1, k_shots=100, max_length=50)
+        raise AssertionError("expected ValueError: k_shots too large for max_length")
+    except ValueError:
+        pass
+
+    print("all _unit_test assertions passed")
 
 if __name__ == '__main__':
     _unit_test()
