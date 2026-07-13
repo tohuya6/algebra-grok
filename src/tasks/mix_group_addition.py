@@ -16,11 +16,18 @@ class MixGroupAddition:
     Intended to mimic an in-context learning scenario.
     """
     def __init__(self, num_symbols: int = 16, max_order: int = 10,
-            mix: float = 0.5, holdout_zero: bool = False, seed: int = 42) -> None:
+            mix: float = 0.5, holdout_zero: bool = False, seed: int = 42,
+            min_order: int = None) -> None:
         assert(max_order <= num_symbols)
+        assert(min_order is None or min_order <= max_order), \
+            f"min_order ({min_order}) must be <= max_order ({max_order})"
         self.task_name = self._task_name()
         self.num_symbols = num_symbols
         self.max_order = max_order
+        # Lower bound on a sampled group's order; None -> each subclass's default
+        # minimum. Setting min_order == max_order pins the order (with mix=0 that
+        # gives one constant group every run -> clean fixed_p sweep).
+        self.min_order = min_order
         self.mix = mix
         self.holdout_zero = holdout_zero
         self.seed = seed
@@ -50,7 +57,7 @@ class MixGroupAddition:
     
     def __repr__(self):
         return (f"{self.__class__.__name__}(num_symbols={self.num_symbols}, "
-                f"max_order={self.max_order}, mix={self.mix}, "
+                f"max_order={self.max_order}, min_order={self.min_order}, mix={self.mix}, "
                 f"holdout_zero={self.holdout_zero}, seed={self.seed})")
 
     def _fixed_slots(self, total_order: int, fixed_p: float) -> set:
@@ -70,7 +77,6 @@ class MixGroupAddition:
             k_shots: int = 200, hold_out: int | list = 0,
             commute_out: bool = True,
             max_length: int = 1024,
-            unshuffled: bool | str = False,
             fixed_groups: list = None,
             fixed_p: float = 0.0):
         '''
@@ -89,19 +95,13 @@ class MixGroupAddition:
         If fixed_groups is provided, the groups are from the list given;
         otherwise the groups in each run are chosen randomly.
 
-        If unshuffled is True, the canonical vocabulary self.vocab[:order]
-        (0,1,2,... in order) is used, with its first token given to the first
-        element of the first group; or unshuffled can be passed as a string to
-        explicitly assign the vocabulary; otherwise if it is false, the
-        vocabulary is assigned randomly in each run.
-
-        In the random (unshuffled=False) regime, fixed_p partially pins the
-        vocabulary: round(fixed_p * order) element-slots take their canonical
-        token (consistent across runs, hence memorizable), while the rest stay
-        randomly assigned per run. Which slots are pinned is chosen by a frozen
-        random permutation (see _fixed_slots), so the pinned elements aren't
-        biased toward the low-index/identity slots. fixed_p=0 is the usual
-        all-variable behavior; fixed_p=1 matches unshuffled=True.
+        fixed_p partially pins the vocabulary: round(fixed_p * order) element-slots
+        take their canonical token self.vocab[i] (consistent across runs, hence
+        memorizable/parametric), while the rest draw a fresh random token each run
+        (symbolic). Which slots are pinned is chosen by a frozen random permutation
+        (see _fixed_slots), so the pinned elements aren't biased toward the
+        low-index/identity slots. fixed_p=0 is the all-variable regime; fixed_p=1
+        pins every slot to the canonical vocabulary self.vocab[:order].
 
         The return structure provides lists of groups, their orders (sizes),
         the vocabulary for each run, the subset of that vocabulary held fixed by
@@ -111,7 +111,7 @@ class MixGroupAddition:
         '''
 
         expressions, g, o, v = zip(*[
-            self.sample_run(k_shots, hold_out, commute_out, unshuffled, fixed_groups, fixed_p)
+            self.sample_run(k_shots, hold_out, commute_out, fixed_groups, fixed_p)
                 for _ in range(batch_size)])
         tensor = self.tensor_from_expression(expressions)
 
@@ -152,7 +152,7 @@ class MixGroupAddition:
         return torch.tensor(recursive_numfor(expressions), dtype=torch.long)
 
     def sample_run(self, k_shots: int, hold_out: int | list = 0, commute_out: bool = True,
-            unshuffled: bool | str = False, fixed_groups = None, fixed_p: float = 0.0):
+            fixed_groups = None, fixed_p: float = 0.0):
         '''
         Returns a single randomly-generated sequence of group facts as a string,
         chosing a random list of groups to use and a random vocabulary.
@@ -179,44 +179,33 @@ class MixGroupAddition:
         assert (fixed_groups is not None or
                 (max(orders) <= self.max_order and total_order <= self.num_symbols) )
 
-        # Select a random vocabulary
+        # Select a vocabulary: the slots chosen by fixed_p (self._fixed_slots,
+        # picked in a frozen random order) take their canonical token self.vocab[i]
+        # -- same across runs, hence memorizable/parametric; the rest draw a fresh
+        # random token from the remaining symbols (-> symbolic). fixed_p=0 is the
+        # all-variable case; fixed_p=1 pins every slot to self.vocab[:total_order].
         elems = [[(g, i) for g in G.generate()] for i, G in enumerate(Glist)]
         all_elems = sum(elems, [])
-        if unshuffled:
-            if type(unshuffled) == str:
-                assert(total_order <= len(unshuffled))
-                vocab = unshuffled[:total_order]
-            else:
-                vocab = self.vocab[:total_order]
+        fixed_slots = self._fixed_slots(total_order, fixed_p)
+        n_fixed = len(fixed_slots)
+        pool = [self.vocab[j] for j in range(self.num_symbols) if j not in fixed_slots]
+        while True:
+            rand_words = (self.prng.sample(pool, total_order - n_fixed)
+                          if n_fixed < total_order else [])
+            it = iter(rand_words)
+            vocab = [self.vocab[i] if i in fixed_slots else next(it)
+                     for i in range(total_order)]
             wordfor = { g: vocab[i] for i, g in enumerate(all_elems) }
-        else:
-            # Partial unshuffle: the slots chosen by fixed_p (self._fixed_slots,
-            # picked in a frozen random order) take their canonical token
-            # self.vocab[i] -- same across runs, hence memorizable/parametric;
-            # the rest draw a fresh random token from the remaining symbols
-            # (-> symbolic). fixed_p=0 is the all-variable case (byte-for-byte
-            # unchanged); fixed_p=1 pins every slot (matches unshuffled=True).
-            fixed_slots = self._fixed_slots(total_order, fixed_p)
-            n_fixed = len(fixed_slots)
-            pool = [self.vocab[j] for j in range(self.num_symbols) if j not in fixed_slots]
-            while True:
-                rand_words = (self.prng.sample(pool, total_order - n_fixed)
-                              if n_fixed < total_order else [])
-                it = iter(rand_words)
-                vocab = [self.vocab[i] if i in fixed_slots else next(it)
-                         for i in range(total_order)]
-                wordfor = { g: vocab[i] for i, g in enumerate(all_elems) }
-                # holdout_zero forbids a *variable* identity (a slot not in
-                # fixed_slots) from being '0'; fixed slots keep their canonical
-                # token regardless, as unshuffled=True does.
-                offset, collide = 0, False
-                for E in elems:
-                    if offset not in fixed_slots and wordfor[E[0]] == '0':
-                        collide = True
-                        break
-                    offset += len(E)
-                if not self.holdout_zero or not collide:
+            # holdout_zero forbids a *variable* identity (a slot not in fixed_slots)
+            # from being '0'; fixed slots keep their canonical token regardless.
+            offset, collide = 0, False
+            for E in elems:
+                if offset not in fixed_slots and wordfor[E[0]] == '0':
+                    collide = True
                     break
+                offset += len(E)
+            if not self.holdout_zero or not collide:
+                break
 
         # Create list of all possible facts from all groups' Cayley tables
         facts = [(a, b) for E in elems for a in E for b in E]
@@ -356,12 +345,13 @@ class MixCyclicGroupAddition(MixGroupAddition):
         return 'mixcyclic'
 
     def _sample_group(self, max_order: int = None):
-        max_order = min(o for o in [self.max_order, max_order] if o is not None)
-        if max_order < 3:
+        hi = min(o for o in [self.max_order, max_order] if o is not None)
+        lo = self.min_order if self.min_order is not None else 3   # cyclic order == modulus
+        if hi < lo or hi < 3:
             return None
-        modulus = self.prng.randrange(3, max_order + 1)
+        modulus = self.prng.randrange(lo, hi + 1)
         return CyclicGroup(modulus)
-    
+
     def _all_groups(self):
         return [CyclicGroup(i) for i in range(3, self.max_order + 1)]
 
@@ -373,12 +363,14 @@ class MixDihedralGroupAddition(MixGroupAddition):
         return 'mixdihedral'
 
     def _sample_group(self, max_order: int = None):
-        max_order = min(o for o in [self.max_order, max_order] if o is not None)
-        if max_order < 4:
+        hi = min(o for o in [self.max_order, max_order] if o is not None)
+        # DihedralGroup(modulus) has order 2*modulus; min_order is a bound on order.
+        lo_mod = max(2, (self.min_order + 1) // 2) if self.min_order is not None else 2
+        if hi // 2 < lo_mod:
             return None
-        modulus = self.prng.randrange(2, max_order // 2 + 1)
+        modulus = self.prng.randrange(lo_mod, hi // 2 + 1)
         return DihedralGroup(modulus)
-    
+
     def _all_groups(self):
         return [DihedralGroup(i) for i in range(2, self.max_order // 2 + 1)]
 
@@ -390,16 +382,19 @@ class MixRosetteGroupAddition(MixGroupAddition):
         return 'mixrosette'
 
     def _sample_group(self, max_order: int = None):
-        max_order = min(o for o in [self.max_order, max_order] if o is not None)
-        num_cyclic = max_order + 1 - 3
-        num_dihedral = (max_order // 2) + 1 - 2
+        hi = min(o for o in [self.max_order, max_order] if o is not None)
+        # min_order bounds the group order: cyclic order == index, dihedral order == 2*modulus.
+        lo_c = max(3, self.min_order) if self.min_order is not None else 3
+        lo_d = max(2, (self.min_order + 1) // 2) if self.min_order is not None else 2
+        num_cyclic = max(0, hi - lo_c + 1)
+        num_dihedral = max(0, hi // 2 - lo_d + 1)
         if num_cyclic + num_dihedral < 1:
             return None
         which_group = self.prng.randrange(num_cyclic + num_dihedral)
         if which_group < num_cyclic:
-            return CyclicGroup(which_group + 3)
+            return CyclicGroup(which_group + lo_c)
         else:
-            return DihedralGroup((which_group - num_cyclic) + 2)
+            return DihedralGroup((which_group - num_cyclic) + lo_d)
     
     def _all_groups(self):
         return [CyclicGroup(i) for i in range(3, self.max_order + 1)] + [DihedralGroup(i) for i in range(2, self.max_order // 2 + 1)]
@@ -412,19 +407,22 @@ class MixMonoidAddition(MixGroupAddition):
         return 'mixmonoid'
 
     def _sample_group(self, max_order: int = None):
-        max_order = min(o for o in [self.max_order, max_order] if o is not None)
-        num_cyclic = max_order + 1 - 2
-        num_dihedral = (max_order // 2) + 1 - 2
+        hi = min(o for o in [self.max_order, max_order] if o is not None)
+        # min_order bounds the order: cyclic/monoid order == index, dihedral == 2*modulus.
+        lo_c = max(2, self.min_order) if self.min_order is not None else 2
+        lo_d = max(2, (self.min_order + 1) // 2) if self.min_order is not None else 2
+        num_cyclic = max(0, hi - lo_c + 1)
+        num_dihedral = max(0, hi // 2 - lo_d + 1)
         if num_cyclic + num_dihedral < 1:
             return None
         if num_dihedral > 0 and self.prng.randrange(2) == 0:
-            modulus = self.prng.randrange(2, max_order // 2 + 1)
+            modulus = self.prng.randrange(lo_d, hi // 2 + 1)
             return DihedralGroup(modulus)
-        modulus = self.prng.randrange(2, max_order + 1)
+        modulus = self.prng.randrange(lo_c, hi + 1)
         if self.prng.randrange(2) == 0:
             return CyclicGroup(modulus)
         modulus -= 1
-        order = self.prng.randrange(modulus + 1, max_order + 1)
+        order = self.prng.randrange(modulus + 1, hi + 1)
         return CyclicMonoid(order, modulus)
 
 def _unit_test():
@@ -441,11 +439,11 @@ def _unit_test():
                 break
         return a == b
     a = MixRosetteGroupAddition(max_order=6, num_symbols=12, holdout_zero=True)
-    batch = a.sample_batch(batch_size=3, k_shots=12, unshuffled=True, hold_out=1)
+    batch = a.sample_batch(batch_size=3, k_shots=12, fixed_p=1.0, hold_out=1)
     # Remove prediction_mask from batch before stringifying
     batch_without_mask = {k: v for k, v in batch.items() if k != 'prediction_mask'}
     assert eqstring(
-        a.stringify(a.sample_batch(batch_size=3, k_shots=12, unshuffled=True, hold_out=1)), '''
+        a.stringify(a.sample_batch(batch_size=3, k_shots=12, fixed_p=1.0, hold_out=1)), '''
         inputs:
         ,10=1,31=4,41=5,21=3,05=5,02=2,23=5,31=4,10=1,23=5,11=2,40=
         ,87=9,7b=6,44=2,66=6,13=4,35=2,ba=8,53=2,34=1,a7=8,88=6,32=
@@ -467,9 +465,9 @@ def _unit_test():
         "0123456789ab"
         "01234"
         fixed_vocabulary:
-        ""
-        ""
-        ""
+        "012345"
+        "0123456789ab"
+        "01234"
         prediction_mask:
         00010000100001000010000100001000010000100001000010000100001
         00010000100001000010000100001000010000100001000010000100001
@@ -539,7 +537,7 @@ def _unit_test():
         00010000100001000010000100001000010000100001000010000100001''')
     a = MixCyclicGroupAddition(max_order=13)
     assert eqstring(
-        a.stringify(a.sample_batch(batch_size=3, k_shots=12, unshuffled=True)), '''
+        a.stringify(a.sample_batch(batch_size=3, k_shots=12, fixed_p=1.0)), '''
         inputs:
         ,29=b,20=2,ee=f,a9=6,19=a,b8=6,84=c,08=8,07=7,1a=b,43=7,47=
         ,65=0,23=5,83=0,76=2,81=9,63=9,49=2,26=8,52=7,69=4,32=5,94=
@@ -561,9 +559,9 @@ def _unit_test():
         "0123456789a"
         "012"
         fixed_vocabulary:
-        ""
-        ""
-        ""
+        "0123456789abcdef"
+        "0123456789a"
+        "012"
         prediction_mask:
         00010000100001000010000100001000010000100001000010000100001
         00010000100001000010000100001000010000100001000010000100001
@@ -601,7 +599,7 @@ def _unit_test():
         00010000100001000010000100001000010000100001000010000100001''')
     a = MixCyclicGroupAddition(max_order=10, holdout_zero=True)
     assert eqstring(
-        a.stringify(a.sample_batch(batch_size=3, k_shots=12, unshuffled=True, hold_out=1)), '''
+        a.stringify(a.sample_batch(batch_size=3, k_shots=12, fixed_p=1.0, hold_out=1)), '''
         inputs:
         ,23=1,97=5,10=1,03=3,23=1,58=9,5a=4,aa=9,03=3,dc=b,56=7,cc=
         ,46=1,da=e,aa=b,81=0,45=0,63=0,a9=a,31=4,27=0,bd=f,28=1,01=
@@ -623,9 +621,9 @@ def _unit_test():
         "0123456789abcdef"
         "01234567"
         fixed_vocabulary:
-        ""
-        ""
-        ""
+        "0123456789abcd"
+        "0123456789abcdef"
+        "01234567"
         prediction_mask:
         00010000100001000010000100001000010000100001000010000100001
         00010000100001000010000100001000010000100001000010000100001

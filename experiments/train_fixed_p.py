@@ -24,7 +24,7 @@ def main(a):
     print(f"device: {ctx}")
 
     task_config = {"num_symbols": a.num_symbols, "max_order": a.max_order,
-                   "mix": a.mix, "holdout_zero": a.holdout_zero}
+                   "min_order": a.min_order, "mix": a.mix, "holdout_zero": a.holdout_zero}
     task = TASK_MAP[a.task_name](**task_config)
     vocab_size = -(-task.vocab_size // 32) * 32          # round up to a multiple of 32 (as training.py does)
 
@@ -62,6 +62,9 @@ if __name__ == "__main__":
                    choices=["mixrosette", "mixcyclic", "mixdihedral", "mixmonoid"])
     p.add_argument("--num_symbols", type=int, default=8)
     p.add_argument("--max_order", type=int, default=4)
+    p.add_argument("--min_order", type=int, default=None,
+                   help="lower bound on sampled group order; set == max_order (with --mix 0) "
+                        "for one constant group every run (clean fixed_p sweep)")
     p.add_argument("--mix", type=float, default=0.0, help="prob. of adding another group per sequence")
     p.add_argument("--holdout_zero", action="store_true", help="forbid a variable identity mapping to '0'")
     p.add_argument("--k_shots", type=int, default=40)
