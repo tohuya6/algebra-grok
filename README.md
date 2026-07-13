@@ -15,7 +15,7 @@ One env file, `env/environment.yml`, created **from the repo root** (so the edit
 ```bash
 module load anaconda3            # on NURC Explorer
 conda env create -f env/environment.yml
-source activate alg-grok         # NURC recommends `source activate` over `conda activate`
+source activate algebra-grok     # NURC recommends `source activate` over `conda activate`
 ```
 Per NURC guidance, create envs under `/projects/<lab>/...` (not `/home`) for storage quota.
 If `pytorch-cuda=12.4` exceeds the node's driver (`nvidia-smi`), lower it in `env/environment.yml`.
@@ -24,7 +24,7 @@ If `pytorch-cuda=12.4` exceeds the node's driver (`nvidia-smi`), lower it in `en
 `pytorch-cuda=12.4` line (conda-forge ships an osx-arm64 CPU pytorch build), then:
 ```bash
 conda env create -f env/environment.yml
-conda activate alg-grok
+conda activate algebra-grok
 ```
 
 ## Common runs (`just`)

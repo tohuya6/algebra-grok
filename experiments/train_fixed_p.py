@@ -39,7 +39,7 @@ def main(a):
         block_size=a.block_size, positional_encoding="rope",
         output_dir=os.path.join(ROOT, "outputs", a.name), leftpad=False, batch_size=a.batch_size,
         n_steps=a.n_steps, lr=a.lr, weight_decay=a.weight_decay, lr_warmup_steps=a.lr_warmup_steps,
-        evaluation_steps=a.evaluation_steps, checkpoint_steps=0, final_token_only=False,
+        evaluation_steps=a.evaluation_steps, checkpoint_steps=a.checkpoint_steps, final_token_only=False,
         seed=a.seed, evaluation_size=a.evaluation_size, use_wandb=False, bf16=a.bf16,
     )
     metadata = {"args": {"task_name": a.task_name, "task_config": task_config,
@@ -68,11 +68,12 @@ if __name__ == "__main__":
                         "for one constant group every run (clean fixed_p sweep)")
     p.add_argument("--mix", type=float, default=0.0, help="prob. of adding another group per sequence")
     p.add_argument("--holdout_zero", action="store_true", help="forbid a variable identity mapping to '0'")
-    p.add_argument("--k_shots", type=int, default=40)
+    p.add_argument("--k_shots", type=int, default=200,
+                   help="facts shown in context (Eric's scale; needs block_size >= 5*k_shots-1)")
     p.add_argument("--d_model", type=int, default=128)
     p.add_argument("--n_layers", type=int, default=2)
     p.add_argument("--n_heads", type=int, default=4)
-    p.add_argument("--block_size", type=int, default=256)
+    p.add_argument("--block_size", type=int, default=1024)
     p.add_argument("--batch_size", type=int, default=64)
     p.add_argument("--n_steps", type=int, default=3000)
     p.add_argument("--lr", type=float, default=1e-3)
@@ -83,6 +84,9 @@ if __name__ == "__main__":
     p.add_argument("--lr_warmup_steps", type=int, default=100)
     p.add_argument("--evaluation_steps", type=int, default=250)
     p.add_argument("--evaluation_size", type=int, default=64)
+    p.add_argument("--checkpoint_steps", type=int, default=0,
+                   help="save a weight checkpoint every N steps (0 = only best.pt); set >0 on "
+                        "long runs to inspect the grokking transition")
     p.add_argument("--seed", type=int, default=0, help="model-init / training seed")
     p.add_argument("--task_seed", type=int, default=42,
                    help="task RNG seed -> drives fixed_perm (WHICH slots are pinned) and the "

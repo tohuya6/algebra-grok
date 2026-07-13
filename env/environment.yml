@@ -3,11 +3,11 @@
 # install resolves this package:
 #   module load anaconda3            # on NURC Explorer
 #   conda env create -f env/environment.yml
-#   source activate alg-grok         # NURC recommends `source activate` over `conda activate`
+#   source activate algebra-grok     # NURC recommends `source activate` over `conda activate`
 #
 # Local macOS / CPU dev: delete the `nvidia` channel and the `pytorch-cuda=12.4` line below,
 # then create as above -- conda-forge ships an osx-arm64 (Apple Silicon) CPU pytorch build.
-name: alg-grok
+name: algebra-grok
 channels:
   - pytorch
   - nvidia

@@ -49,20 +49,24 @@ train p name="run" steps=steps *extra="":
         --name {{name}} --fixed_p {{p}} \
         --task_name {{task}} --device {{device}} --n_steps {{steps}} {{extra}}
 
-# GROKKING run: He et al. weight_decay=2.0 + lr=1.5e-4, long + bf16 (bf16 no-ops off-CUDA)
+# GROKKING run: He et al. weight_decay=2.0 + lr=1.5e-4, long + bf16 (bf16 no-ops off-CUDA).
+# Checkpoints every 5k steps so you can load the model across the grokking transition.
 grok name="grok" steps="50000" fixed_p="0.0" *extra="":
     python experiments/train_fixed_p.py \
         --name {{name}} --fixed_p {{fixed_p}} \
         --task_name {{task}} --device {{device}} --n_steps {{steps}} \
-        --weight_decay 2.0 --lr 1.5e-4 --bf16 {{extra}}
+        --weight_decay 2.0 --lr 1.5e-4 --bf16 --checkpoint_steps 5000 {{extra}}
 
 # FULL constant-C10 sweep: trains p in {0.0..0.9} (p=1 excluded, degenerate). Long -> GPU/cluster.
+# Uses the GROKKING hyperparameters (wd=2.0, lr=1.5e-4, bf16) + 10k-step checkpoints, so each
+# sweep point is a real grokking run (NOT the PoC lr=1e-3 default).
 # NOT run by default; invoke explicitly, e.g. `just device=cuda sweep-c10` (steps default 200k).
 sweep-c10 steps="200000" *extra="":
     for p in 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9; do \
         python experiments/train_fixed_p.py \
             --name c10-p$p --fixed_p $p \
             --task_name mixcyclic --num_symbols 16 --max_order 10 --min_order 10 --mix 0 \
+            --weight_decay 2.0 --lr 1.5e-4 --bf16 --checkpoint_steps 10000 \
             --device {{device}} --n_steps {{steps}} {{extra}}; \
     done
 
