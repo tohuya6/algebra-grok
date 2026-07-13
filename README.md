@@ -8,23 +8,24 @@ trained model is in. See the concept notes at the bottom for the full picture.
 
 ## Setup (conda)
 
-Create the environment **from the repo root** (so the editable `pip install -e .` resolves):
+One env file, `env/environment.yml`, created **from the repo root** (so the editable
+`pip install -e .` resolves). It targets the cluster/CUDA by default.
 
 **Cluster — Northeastern Explorer / any Linux + NVIDIA box:**
 ```bash
 module load anaconda3            # on NURC Explorer
-conda env create -f environment.yml
+conda env create -f env/environment.yml
 source activate alg-grok         # NURC recommends `source activate` over `conda activate`
 ```
 Per NURC guidance, create envs under `/projects/<lab>/...` (not `/home`) for storage quota.
-If `pytorch-cuda=12.4` exceeds the node's driver (`nvidia-smi`), lower it in `environment.yml`.
+If `pytorch-cuda=12.4` exceeds the node's driver (`nvidia-smi`), lower it in `env/environment.yml`.
 
-**Local — macOS / CPU:**
+**Local — macOS / CPU:** in `env/environment.yml`, delete the `nvidia` channel and the
+`pytorch-cuda=12.4` line (conda-forge ships an osx-arm64 CPU pytorch build), then:
 ```bash
-conda env create -f environment-cpu.yml
+conda env create -f env/environment.yml
 conda activate alg-grok
 ```
-The only difference is the cluster env pins `pytorch-cuda` (Linux-only); local uses a CPU build.
 
 ## Common runs (`just`)
 
@@ -44,7 +45,7 @@ extra flags pass straight through (`just train-symbolic big 20000 --d_model 256 
 - `src/` — model, tasks (data generation), trainer, readout, device utils
 - `experiments/` — `train_fixed_p.py` (training CLI), `eval.py` (readout CLI), notebooks
 - `outputs/` — training runs + checkpoints (gitignored)
-- `environment.yml` / `environment-cpu.yml` — conda envs (cluster / local)
+- `env/environment.yml` — the conda env (cluster/CUDA default; see Setup for the local/CPU tweak)
 
 ---
 

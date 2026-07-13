@@ -1,9 +1,12 @@
-# Cluster / CUDA conda env for algebra-grok (Northeastern Explorer, or any Linux + NVIDIA box).
-# Create from the REPO ROOT so the `-e .` editable install resolves this package:
+# The one conda env for algebra-grok. Canonical target = cluster / CUDA (Northeastern
+# Explorer, or any Linux + NVIDIA box). Create from the REPO ROOT so the `-e .` editable
+# install resolves this package:
 #   module load anaconda3            # on NURC Explorer
-#   conda env create -f environment.yml
+#   conda env create -f env/environment.yml
 #   source activate alg-grok         # NURC recommends `source activate` over `conda activate`
-# For local macOS / CPU dev use environment-cpu.yml instead.
+#
+# Local macOS / CPU dev: delete the `nvidia` channel and the `pytorch-cuda=12.4` line below,
+# then create as above -- conda-forge ships an osx-arm64 (Apple Silicon) CPU pytorch build.
 name: alg-grok
 channels:
   - pytorch

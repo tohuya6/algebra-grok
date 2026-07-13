@@ -1,5 +1,5 @@
 # algebra-grok task runner. Recipes call `python` in the ACTIVE conda env — activate it
-# first (see README: `conda env create -f environment.yml` or `-cpu.yml`, then activate).
+# first (see README: `conda env create -f env/environment.yml`, then activate).
 # Run `just` (or `just --list`) to see everything.
 #
 # Recipe args are POSITIONAL (name, then steps), e.g.
@@ -18,13 +18,11 @@ steps  := "3000"        # training steps for the quick presets
 default:
     @just --list
 
-# create the conda env (cluster / CUDA); run from the repo root
+# The one env file targets cluster/CUDA; for local macOS/CPU, first drop the `nvidia`
+# channel + `pytorch-cuda` line in env/environment.yml (see README).
+# create the conda env from the repo root
 setup:
-    conda env create -f environment.yml
-
-# create the conda env for local macOS / CPU dev
-setup-local:
-    conda env create -f environment-cpu.yml
+    conda env create -f env/environment.yml
 
 # --- training presets ----------------------------------------------------------
 # SYMBOLIC regime: all-variable vocabulary (fixed_p=0) -> model must solve in-context
