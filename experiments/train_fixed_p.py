@@ -24,7 +24,8 @@ def main(a):
     print(f"device: {ctx}")
 
     task_config = {"num_symbols": a.num_symbols, "max_order": a.max_order,
-                   "min_order": a.min_order, "mix": a.mix, "holdout_zero": a.holdout_zero}
+                   "min_order": a.min_order, "mix": a.mix, "holdout_zero": a.holdout_zero,
+                   "seed": a.task_seed}
     task = TASK_MAP[a.task_name](**task_config)
     vocab_size = -(-task.vocab_size // 32) * 32          # round up to a multiple of 32 (as training.py does)
 
@@ -82,5 +83,9 @@ if __name__ == "__main__":
     p.add_argument("--lr_warmup_steps", type=int, default=100)
     p.add_argument("--evaluation_steps", type=int, default=250)
     p.add_argument("--evaluation_size", type=int, default=64)
-    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--seed", type=int, default=0, help="model-init / training seed")
+    p.add_argument("--task_seed", type=int, default=42,
+                   help="task RNG seed -> drives fixed_perm (WHICH slots are pinned) and the "
+                        "data draws; stored in task_config so eval reproduces the same pinning. "
+                        "Vary it (holding fixed_p) for a robustness check over the pinned-set.")
     main(p.parse_args())
