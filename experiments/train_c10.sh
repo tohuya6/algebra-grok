@@ -24,8 +24,9 @@ echo "training fixed_p=$fixed_p (constant C10) -> outputs/$name"
 
 # min_order == max_order == 10 with mix=0 pins one constant C10 every run, so each 0.1 of
 # fixed_p pins exactly one more element. He et al. grokking hparams (wd=2.0, lr=1.5e-4, bf16).
+# k_shots=100 (~10 examples/element for C10); bump toward 200 if acc_full plateaus.
 python experiments/train_fixed_p.py \
     --name="$name" --fixed_p="$fixed_p" \
-    --task_name=mixcyclic --num_symbols=16 --max_order=10 --min_order=10 --mix=0 \
+    --task_name=mixcyclic --num_symbols=16 --max_order=10 --min_order=10 --mix=0 --k_shots=100 \
     --weight_decay=2.0 --lr=1.5e-4 --bf16 --checkpoint_steps=10000 --evaluation_steps=1000 \
     --n_steps="$n_steps"
