@@ -1,6 +1,5 @@
 # The conda env for algebra-grok. Target = cluster / CUDA (Northeastern Explorer, or any
-# Linux + NVIDIA box). Create from the REPO ROOT so the `-e .` editable install resolves
-# this package:
+# Linux + NVIDIA box).
 #   module load anaconda3            # on NURC Explorer
 #   conda env create -f env/environment.yml
 #   source activate algebra-grok     # NURC recommends `source activate` over `conda activate`
@@ -22,4 +21,4 @@ dependencies:
   - pip
   - pip:
       - nnsight             # Bau-lab interpretability tool (pip-only, no conda package)
-      - -e .                # editable install of this package (reads pyproject.toml)
+      - -e ..               # editable install of this package (reads pyproject.toml)
