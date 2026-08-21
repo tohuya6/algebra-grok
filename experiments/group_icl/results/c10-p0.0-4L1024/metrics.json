@@ -1,0 +1,155 @@
+[
+  {
+    "step": 0,
+    "train_loss": null,
+    "s_per_it": NaN,
+    "acc_full": 0.0,
+    "acc_context_shuffle": 0.0,
+    "acc_global_relabel": 0.0,
+    "symbolic_reliance": NaN
+  },
+  {
+    "step": 250,
+    "train_loss": 1.4329668283462524,
+    "s_per_it": 0.12552591499313712,
+    "acc_full": 0.046875,
+    "acc_context_shuffle": 0.03125,
+    "acc_global_relabel": 0.03125,
+    "symbolic_reliance": 0.3333333333333333
+  },
+  {
+    "step": 500,
+    "train_loss": 1.4266244173049927,
+    "s_per_it": 0.12413556491211057,
+    "acc_full": 0.09375,
+    "acc_context_shuffle": 0.078125,
+    "acc_global_relabel": 0.0625,
+    "symbolic_reliance": 0.16666666666666666
+  },
+  {
+    "step": 750,
+    "train_loss": 1.412415623664856,
+    "s_per_it": 0.12440319003909826,
+    "acc_full": 0.046875,
+    "acc_context_shuffle": 0.15625,
+    "acc_global_relabel": 0.09375,
+    "symbolic_reliance": -2.3333333333333335
+  },
+  {
+    "step": 1000,
+    "train_loss": 1.4113457202911377,
+    "s_per_it": 0.12512996365129947,
+    "acc_full": 0.046875,
+    "acc_context_shuffle": 0.046875,
+    "acc_global_relabel": 0.109375,
+    "symbolic_reliance": 0.0
+  },
+  {
+    "step": 1250,
+    "train_loss": 1.4084522724151611,
+    "s_per_it": 0.12562259892746805,
+    "acc_full": 0.15625,
+    "acc_context_shuffle": 0.125,
+    "acc_global_relabel": 0.109375,
+    "symbolic_reliance": 0.2
+  },
+  {
+    "step": 1500,
+    "train_loss": 1.4080387353897095,
+    "s_per_it": 0.12525252153351904,
+    "acc_full": 0.09375,
+    "acc_context_shuffle": 0.09375,
+    "acc_global_relabel": 0.109375,
+    "symbolic_reliance": 0.0
+  },
+  {
+    "step": 1750,
+    "train_loss": 1.4078562259674072,
+    "s_per_it": 0.12450682332366705,
+    "acc_full": 0.09375,
+    "acc_context_shuffle": 0.046875,
+    "acc_global_relabel": 0.09375,
+    "symbolic_reliance": 0.5
+  },
+  {
+    "step": 2000,
+    "train_loss": 1.4064149856567383,
+    "s_per_it": 0.12554148757457734,
+    "acc_full": 0.109375,
+    "acc_context_shuffle": 0.03125,
+    "acc_global_relabel": 0.109375,
+    "symbolic_reliance": 0.7142857142857143
+  },
+  {
+    "step": 2250,
+    "train_loss": 1.4075334072113037,
+    "s_per_it": 0.12391859319806099,
+    "acc_full": 0.09375,
+    "acc_context_shuffle": 0.03125,
+    "acc_global_relabel": 0.0625,
+    "symbolic_reliance": 0.6666666666666666
+  },
+  {
+    "step": 2500,
+    "train_loss": 1.4064314365386963,
+    "s_per_it": 0.12575660815089942,
+    "acc_full": 0.046875,
+    "acc_context_shuffle": 0.09375,
+    "acc_global_relabel": 0.109375,
+    "symbolic_reliance": -1.0
+  },
+  {
+    "step": 2750,
+    "train_loss": 1.4067561626434326,
+    "s_per_it": 0.12528624639287592,
+    "acc_full": 0.09375,
+    "acc_context_shuffle": 0.03125,
+    "acc_global_relabel": 0.09375,
+    "symbolic_reliance": 0.6666666666666666
+  },
+  {
+    "step": 3000,
+    "train_loss": 1.406692385673523,
+    "s_per_it": 0.12518252455070614,
+    "acc_full": 0.109375,
+    "acc_context_shuffle": 0.046875,
+    "acc_global_relabel": 0.078125,
+    "symbolic_reliance": 0.5714285714285714
+  },
+  {
+    "step": 3250,
+    "train_loss": 1.4057762622833252,
+    "s_per_it": 0.12505269449949263,
+    "acc_full": 0.125,
+    "acc_context_shuffle": 0.046875,
+    "acc_global_relabel": 0.09375,
+    "symbolic_reliance": 0.625
+  },
+  {
+    "step": 3500,
+    "train_loss": 1.4062412977218628,
+    "s_per_it": 0.1252031137868762,
+    "acc_full": 0.109375,
+    "acc_context_shuffle": 0.09375,
+    "acc_global_relabel": 0.0625,
+    "symbolic_reliance": 0.14285714285714285
+  },
+  {
+    "step": 3750,
+    "train_loss": 1.406558871269226,
+    "s_per_it": 0.12522145684435965,
+    "acc_full": 0.109375,
+    "acc_context_shuffle": 0.0625,
+    "acc_global_relabel": 0.171875,
+    "symbolic_reliance": 0.42857142857142855
+  },
+  {
+    "step": 4000,
+    "train_loss": 1.4059219360351562,
+    "s_per_it": 0.12458660057932139,
+    "acc_full": 0.0625,
+    "acc_context_shuffle": 0.078125,
+    "acc_global_relabel": 0.140625,
+    "symbolic_reliance": -0.25
+  }
+]

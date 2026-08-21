@@ -9,7 +9,8 @@ from src.trainer import Trainer
 from src.config import TrainingParams
 from src.constants import TASK_MAP
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # alg-grok/, for outputs/
+# Repo root, for outputs/ -- three levels up from experiments/group_icl/train_fixed_p.py
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def build_model(d_model, n_layers, n_heads, block_size, vocab_size, use_flash):

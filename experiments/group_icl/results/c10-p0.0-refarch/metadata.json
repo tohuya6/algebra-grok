@@ -1,0 +1,26 @@
+{
+  "args": {
+    "task_name": "mixcyclic",
+    "task_config": {
+      "num_symbols": 16,
+      "max_order": 10,
+      "min_order": 10,
+      "mix": 0.0,
+      "holdout_zero": false,
+      "seed": 42
+    },
+    "k_shots": 100,
+    "fixed_p": 0.0,
+    "weight_decay": 2.0,
+    "lr": 0.00015,
+    "bf16": true
+  },
+  "model_params": {
+    "n_embd": 1024,
+    "n_layer": 4,
+    "n_head": 8,
+    "block_size": 1024,
+    "vocab_size": 32,
+    "positional_encoding": "rope"
+  }
+}
